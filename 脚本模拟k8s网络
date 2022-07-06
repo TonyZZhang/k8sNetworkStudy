@@ -1,0 +1,45 @@
+##模拟同一个节点不同pod之间的通信
+1.创建第一个net namespace
+ip netns add node-0
+
+2.创建第二个net namespace
+ip netns add node-1
+
+3.创建bridge
+ip link add bridge-one type bridge
+
+4.创建两对veth pair
+ip link add node0veth0 type veth peer name node0veth1
+ip link add node1veth0 type veth peer name node1veth1
+
+5.将veth pair设备一端放到net namespace中
+ip link set node0veth0 netns node-0
+ip link set node1veth0 netns node-1
+
+6.将veth pair设备另一端放到bridge中
+ip link set dev node0veth1 master bridge-one
+ip link set dev node1veth1 master bridge-one
+
+7.给bridge分配IP
+ip addr add 1.2.3.101/24 dev bridge-one
+
+8.进入node-0 net namespace
+1)激活loopback
+ip netns exec node-0 ip link set dev lo up
+2)激活veth pair node0veth0
+ip netns exec node-0 ifconfig node0veth0 1.2.3.100/24 up
+
+9.进入node-1 net namesapce
+1)激活loopback
+ip netns exec node-1 ip link set dev lo up
+2)激活veth pair node1veth1
+ip netns exec node-1 ifconfig node1veth0 1.2.3.102/24 up
+
+10.激活bridge-one
+ip link set bridge-one up
+
+11.激活veth pair对端网卡
+ip link set dev node0veth1 up
+ip link set dev node1veth1 up
+
+12.可以互相ping通
