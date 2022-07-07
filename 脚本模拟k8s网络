@@ -43,3 +43,4 @@ ip link set dev node0veth1 up
 ip link set dev node1veth1 up
 
 12.可以互相ping通
+

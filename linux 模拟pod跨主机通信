@@ -1,0 +1,56 @@
+1.开两台主机 node-1 node-2
+1) node-1 ip 20.5.1.83
+2) node-2 ip 20.5.1.84
+
+2.node-1上创建net namespace 模拟pod
+ip netns add node-1-pod
+
+3.node-2上创建net namespace 模拟pod
+ip netns add node-2-pod
+
+4.node-1创建bridge
+ip link add bridge-pod type bridge
+
+5.node-2创建bridge
+ip link add bridge-pod type bridge
+
+6.node-1创建 vethpair对，一端在net namespace,一端在 bridge
+ip link add podveth0 type veth peer name podveth1
+ip link set podveth0 netns node-1-pod
+ip link set dev podveth1 master bridge-pod
+
+7.node-2创建 vethpair对，一端在net namespace,一端在 bridge
+ip link add podveth0 type veth peer name podveth1
+ip link set podveth0 netns node-2-pod
+ip link set dev podveth1 master bridge-pod
+
+8.给node-1 bridge分配IP,并激活bridge
+ip addr add 1.2.3.1/24 dev bridge-pod
+ip link set bridge-pod up
+
+9.给node-2 bridge分配IP,并激活bridge
+ip addr add 1.2.4.1/24 dev bridge-pod
+ip link set bridge-pod up
+
+10.进入node-1的 node-1-pod net namespace
+1)激活loopback
+ip netns exec node-1-pod ip link set dev lo up
+2)激活veth pair node0veth0
+ip netns exec node-1-pod ifconfig podveth0 1.2.3.100/24 up
+
+11.进入node-2的 node-2-pod net namespace
+1)激活loopback
+ip netns exec node-2-pod ip link set dev lo up
+2)激活veth pair node0veth0
+ip netns exec node-2-pod ifconfig podveth0 1.2.4.100/24 up
+
+12.node-1激活veth pair对端网卡
+ip link set dev podveth1 up
+
+13.node-2激活veth pair对端网卡
+ip link set dev podveth1 up
+
+14.为容器增加一个路由规则，让容器可以访问外面的网络
+ip netns exec node-1-pod ip route add default via 1.2.3.1
+将物理网卡添加到bridge
+ip link set dev enp0s3 master bridge-pod
