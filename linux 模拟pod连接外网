@@ -27,6 +27,12 @@ ip link set dev podveth1 up
 7.为容器增加一个路由规则，让容器可以访问外面的网络
 ip netns exec node-1-pod ip route add default via 1.2.3.1
 
+//排错后新增
+8.sysctl net.ipv4.conf.all.forwarding=1
+9.iptables -P FORWARD ACCEPT
+
+10.iptables -t nat -A POSTROUTING -s 1.2.3.100/24 ! -o bridge-pod -j MASQUERADE
+
 
 测试：
 1.ip netns exec node-1-pod ping www.baidu.com
@@ -64,3 +70,5 @@ listening on podveth0, link-type EN10MB (Ethernet), capture size 262144 bytes
 
 2.解决方案
 https://blog.csdn.net/WeiJiaXiaoBao/article/details/122325038
+
+

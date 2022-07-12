@@ -1,0 +1,14 @@
+ip netns add node-1-pod
+ip link add podveth0 type veth peer name podveth1
+ip link set podveth0 netns node-1-pod
+ip netns exec node-1-pod ifconfig podveth0 1.2.3.100/24 up
+//ip netns exec node-1-pod ip link set podveth0 up
+ip link add bridge-pod type bridge
+ip addr add 1.2.3.1/24 dev bridge-pod
+ip link set dev podveth1 master bridge-pod
+ip link set dev podveth1 up
+ip link set bridge-pod up
+ip netns exec node-1-pod ip route add default via 1.2.3.1
+sysctl net.ipv4.conf.all.forwarding=1
+iptables -P FORWARD ACCEPT
+iptables -t nat -A POSTROUTING -s 1.2.3.0/24 ! -o bridge-pod -j MASQUERADE
