@@ -1,0 +1,53 @@
+1.第一个节点创建pod
+#!/bin/bash
+ip netns add node-1-pod
+ip link add podveth0 type veth peer name podveth1
+ip link set podveth0 netns node-1-pod
+ip netns exec node-1-pod ifconfig podveth0 1.2.4.100/24 up
+ip link add bridge-pod type bridge
+ip addr add 1.2.4.1/24 dev bridge-pod
+ip link set dev podveth1 master bridge-pod
+ip link set dev podveth1 up
+ip link set bridge-pod up
+ip netns exec node-1-pod ip route add default via 1.2.4.1
+sysctl net.ipv4.conf.all.forwarding=1
+iptables -P FORWARD ACCEPT
+iptables -t nat -A POSTROUTING -s 1.2.4.0/24 ! -o bridge-pod -j MASQUERADE
+#最后一步是增加路由，1.2.3.0/24是pod的IP， 20.5.1.121是对应node的真是IP
+ip route add 1.2.3.0/24 via 20.5.1.121
+echo "Create Pod Success!"
+
+2.第二个节点创建pod
+#!/bin/bash
+ip netns add node-1-pod
+ip link add podveth0 type veth peer name podveth1
+ip link set podveth0 netns node-1-pod
+ip netns exec node-1-pod ifconfig podveth0 1.2.3.100/24 up
+ip link add bridge-pod type bridge
+ip addr add 1.2.3.1/24 dev bridge-pod
+ip link set dev podveth1 master bridge-pod
+ip link set dev podveth1 up
+ip link set bridge-pod up
+ip netns exec node-1-pod ip route add default via 1.2.3.1
+sysctl net.ipv4.conf.all.forwarding=1
+iptables -P FORWARD ACCEPT
+iptables -t nat -A POSTROUTING -s 1.2.3.0/24 ! -o bridge-pod -j MASQUERADE
+echo "Create Pod Success!"
+#最后一步是增加路由，1.2.4.0/24是pod的IP， 20.5.1.103是对应node的真是IP
+ip route add 1.2.4.0/24 via 20.5.1.103
+
+3.测试
+在第一个node上的pod ping 第二个node上的pod
+
+ip netns exec node-1-pod ping 1.2.3.100
+
+[root@localhost ~]# ip netns exec node-1-pod ping  -c 3 1.2.3.100
+PING 1.2.3.100 (1.2.3.100) 56(84) bytes of data.
+64 bytes from 1.2.3.100: icmp_seq=1 ttl=62 time=0.771 ms
+64 bytes from 1.2.3.100: icmp_seq=2 ttl=62 time=1.26 ms
+64 bytes from 1.2.3.100: icmp_seq=3 ttl=62 time=1.64 ms
+
+--- 1.2.3.100 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+
+4，结束,下一步编程实现
